@@ -1,9 +1,7 @@
-from itertools import cycle
-
 from curses_tools import get_frame_size
 
 
-def get_rocket_frames_and_size():
+def get_rocket_frames():
     rocket_frame_files = ['animation/rocket_frame_1.txt',
                           'animation/rocket_frame_2.txt']
     
@@ -14,7 +12,7 @@ def get_rocket_frames_and_size():
 
     rocket_height, rocket_wide = get_frame_size(rocket_frames[0])
 
-    return cycle(rocket_frames), rocket_height, rocket_wide
+    return rocket_frames
 
 
 def get_garbage_frames():
