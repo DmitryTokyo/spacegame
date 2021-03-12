@@ -5,10 +5,12 @@ import random
 from itertools import cycle
 
 from curses_tools import draw_frame, read_controls, get_frame_size
-from animation_frame import get_rocket_frames_and_size, get_garbage_frames
-from fire import fire
+from animation_frame import get_rocket_frames, get_garbage_frames
 
 TIC_TIMEOUT = 0.1
+SCREEN_WIDE, SCREEN_HEIGHT = 0, 0
+COROUTINES = []
+STAR = '*+:.'
 
 
 async def blink(canvas, row, column, symbol='*'):
@@ -29,6 +31,24 @@ async def blink(canvas, row, column, symbol='*'):
         canvas.addstr(row, column, symbol)
         for _ in range(3):
             await asyncio.sleep(0)
+
+
+async def control_spaceship(canvas, rocket_frames, row, column):
+    rocket_height, rocket_wide = get_frame_size(rocket_frames[0])
+    rocket_frames = cycle(rocket_frames)
+
+    while True:
+        rocket_frame = next(rocket_frames)
+        rows_direction, columns_direction, space_pressed = read_controls(
+            canvas)
+        row += rows_direction
+        column += columns_direction
+        if column <= 1 or column >= SCREEN_WIDE - rocket_wide:
+            column -= columns_direction
+        if row <= 1 or row >= SCREEN_HEIGHT - rocket_height:
+            row -= rows_direction
+        draw_rocket(canvas, rocket_frame, row, column)
+        await asyncio.sleep(0)
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
@@ -63,7 +83,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
 
 async def fill_orbit_with_garbage(canvas, garbage_frames):
     while True:
-        coroutines.append(fly_garbage(canvas, random.randint(1, max_border_wide-1), random.choice(garbage_frames)))
+        COROUTINES.append(fly_garbage(canvas, random.randint(1, SCREEN_WIDE-1), random.choice(garbage_frames)))
         for _ in range(15):
             await asyncio.sleep(0)
 
@@ -91,53 +111,34 @@ def draw_rocket(canvas, rocket_frame, row, column):
 
 
 def draw(canvas):
-    global coroutines
-    global max_border_wide
-    rocket_frames, rocket_height, rocket_wide = get_rocket_frames_and_size()
+    rocket_frames = get_rocket_frames()
     garbage_frames = get_garbage_frames()
 
-    max_border_height, max_border_wide = canvas.getmaxyx()
-    rocket_position_row = max_border_height/2
-    rocket_position_column = max_border_wide/2
-
-    # Создание списка корутин
-    star = '*+:.'
-    coroutines = []
     for column in range(100):
-        star_row = random.randint(1, max_border_height-1)
-        star_column = random.randint(1, max_border_wide-1)
-        star_type = random.choice(star)
-        coroutines.append(blink(canvas, star_row, star_column, star_type))
-    coroutines.append(fire(canvas, rocket_position_row, rocket_position_column))
-    coroutines.append(fill_orbit_with_garbage(canvas, garbage_frames))
+        star_row = random.randint(1, SCREEN_HEIGHT-1)
+        star_column = random.randint(1, SCREEN_WIDE-1)
+        star_type = random.choice(STAR)
+        COROUTINES.append(blink(canvas, star_row, star_column, star_type))
+    COROUTINES.append(fire(canvas, SCREEN_HEIGHT/2, SCREEN_WIDE/2))
+    COROUTINES.append(fill_orbit_with_garbage(canvas, garbage_frames))
+    COROUTINES.append(control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT/2, SCREEN_WIDE/2))
 
     canvas.nodelay(True)
     while True:
-        for coroutine in coroutines.copy():
+        for coroutine in COROUTINES.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
-                coroutines.remove(coroutine)
-            if len(coroutines) == 0:
+                COROUTINES.remove(coroutine)
+            if len(COROUTINES) == 0:
                 break
-
-        # Определение местоположения ракеты, считывание кнопок, отрисовка ракеты
-        rocket_frame = next(rocket_frames)
-        rows_direction, columns_direction, space_pressed = read_controls(
-            canvas)
-        rocket_position_row += rows_direction
-        rocket_position_column += columns_direction
-        if rocket_position_column <= 1 or rocket_position_column >= max_border_wide - rocket_wide:
-            rocket_position_column -= columns_direction
-        if rocket_position_row <= 1 or rocket_position_row >= max_border_height - rocket_height:
-            rocket_position_row -= rows_direction
-        draw_rocket(canvas, rocket_frame, rocket_position_row, rocket_position_column)
 
         time.sleep(TIC_TIMEOUT)
 
 
 if __name__ == '__main__':
-    curses.initscr()
+    screen = curses.initscr()
     curses.curs_set(False)
     curses.update_lines_cols()
+    SCREEN_HEIGHT, SCREEN_WIDE = screen.getmaxyx()
     curses.wrapper(draw)
