@@ -34,12 +34,14 @@ async def blink(canvas, row, column, symbol='*'):
 async def control_spaceship(canvas, rocket_frames, row, column):
     rocket_height, rocket_wide = get_frame_size(rocket_frames[0])
     rocket_frames = cycle(rocket_frames)
-    row_speed = column_speed = 0
+    row_speed = column_speed = 0 
 
     while True:
-        rocket_frame = next(rocket_frames)
+        rocket_frame = next(rocket_frames) 
         rows_direction, columns_direction, space_pressed = read_controls(
             canvas)
+        if space_pressed:
+            COROUTINES.append(fire(canvas, row - 1, column + rocket_wide // 2))
         row_speed, column_speed = update_speed(row_speed, column_speed, rows_direction, columns_direction)
         row += row_speed
         column += column_speed
@@ -125,9 +127,8 @@ def draw(canvas):
         star_type = random.choice(STAR)
         COROUTINES.append(blink(canvas, star_row, star_column, star_type))
     COROUTINES.extend([
-        fire(canvas, SCREEN_HEIGHT/2, SCREEN_WIDE/2),
         fill_orbit_with_garbage(canvas, garbage_frames),
-        control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT/2, SCREEN_WIDE/2)
+        control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT//2, SCREEN_WIDE//2)
     ])
 
     canvas.nodelay(True)
