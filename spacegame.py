@@ -6,6 +6,8 @@ from itertools import cycle
 
 from curses_tools import draw_frame, read_controls, get_frame_size
 from animation_frame import get_rocket_frames, get_garbage_frames
+from pysics import update_speed
+
 
 TIC_TIMEOUT = 0.1
 SCREEN_WIDE, SCREEN_HEIGHT = 0, 0
@@ -17,36 +19,35 @@ async def blink(canvas, row, column, symbol='*'):
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
         loop = random.randint(1, 21)
-        for _ in range(loop):
-            await asyncio.sleep(0)
+        await sleep(loop)
 
         canvas.addstr(row, column, symbol)
-        for _ in range(3):
-            await asyncio.sleep(0)
+        await sleep(3)
 
         canvas.addstr(row, column, symbol, curses.A_BOLD)
-        for _ in range(5):
-            await asyncio.sleep(0)
+        await sleep(5)
 
         canvas.addstr(row, column, symbol)
-        for _ in range(3):
-            await asyncio.sleep(0)
+        await sleep(3)
 
 
 async def control_spaceship(canvas, rocket_frames, row, column):
     rocket_height, rocket_wide = get_frame_size(rocket_frames[0])
     rocket_frames = cycle(rocket_frames)
+    row_speed = column_speed = 0
 
     while True:
         rocket_frame = next(rocket_frames)
         rows_direction, columns_direction, space_pressed = read_controls(
             canvas)
-        row += rows_direction
-        column += columns_direction
+        row_speed, column_speed = update_speed(row_speed, column_speed, rows_direction, columns_direction)
+        row += row_speed
+        column += column_speed
+
         if column <= 1 or column >= SCREEN_WIDE - rocket_wide:
-            column -= columns_direction
+            column -= column_speed
         if row <= 1 or row >= SCREEN_HEIGHT - rocket_height:
-            row -= rows_direction
+            row -= row_speed
         draw_rocket(canvas, rocket_frame, row, column)
         await asyncio.sleep(0)
 
@@ -84,8 +85,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
 async def fill_orbit_with_garbage(canvas, garbage_frames):
     while True:
         COROUTINES.append(fly_garbage(canvas, random.randint(1, SCREEN_WIDE-1), random.choice(garbage_frames)))
-        for _ in range(15):
-            await asyncio.sleep(0)
+        await sleep(15)
 
 
 async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
@@ -104,6 +104,11 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         row += speed
 
 
+async def sleep(tic=1):
+    for _ in range(tic):
+        await asyncio.sleep(0)
+
+
 def draw_rocket(canvas, rocket_frame, row, column):
     draw_frame(canvas, row, column, rocket_frame)
     canvas.refresh()
@@ -119,9 +124,11 @@ def draw(canvas):
         star_column = random.randint(1, SCREEN_WIDE-1)
         star_type = random.choice(STAR)
         COROUTINES.append(blink(canvas, star_row, star_column, star_type))
-    COROUTINES.append(fire(canvas, SCREEN_HEIGHT/2, SCREEN_WIDE/2))
-    COROUTINES.append(fill_orbit_with_garbage(canvas, garbage_frames))
-    COROUTINES.append(control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT/2, SCREEN_WIDE/2))
+    COROUTINES.extend([
+        fire(canvas, SCREEN_HEIGHT/2, SCREEN_WIDE/2),
+        fill_orbit_with_garbage(canvas, garbage_frames),
+        control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT/2, SCREEN_WIDE/2)
+    ])
 
     canvas.nodelay(True)
     while True:
