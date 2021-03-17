@@ -15,6 +15,7 @@ SCREEN_WIDE, SCREEN_HEIGHT = 0, 0
 COROUTINES = []
 OBSTACLES = []
 STAR = '*+:.'
+OBSTACLES_IN_LAST_COLLISION = []
 
 
 async def blink(canvas, row, column, symbol='*'):
@@ -81,6 +82,7 @@ async def fire(canvas, start_row, start_column, rows_speed=-1.3, columns_speed=0
     while 0 < row < max_row and 0 < column < max_column:
         for obstacle in OBSTACLES:
             if obstacle.has_collision(row, column):
+                OBSTACLES_IN_LAST_COLLISION.append(obstacle)
                 return
             
         canvas.addstr(round(row), round(column), symbol)
@@ -116,12 +118,16 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         draw_frame(canvas, row, column, garbage_frame, negative=True)
         row += speed
         obstacle.row += speed
-    else:    
+        if obstacle in OBSTACLES_IN_LAST_COLLISION:
+            OBSTACLES.remove(obstacle)
+            OBSTACLES_IN_LAST_COLLISION.remove(obstacle)
+            return
+    else:        
         OBSTACLES.remove(obstacle)
         
 
 async def sleep(tic=1):
-    for _ in range(tic):
+    for _ in range(tic): 
         await asyncio.sleep(0)
 
 
