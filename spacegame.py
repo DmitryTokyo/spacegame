@@ -5,7 +5,7 @@ import random
 from itertools import cycle
 
 from curses_tools import draw_frame, read_controls, get_frame_size
-from animation_frame import get_rocket_frames, get_garbage_frames
+from animation_frame import get_rocket_frames, get_garbage_frames, get_gameover_frame
 from pysics import update_speed
 from obstacles import Obstacle, show_obstacles
 from explosion import explode
@@ -54,7 +54,11 @@ async def control_spaceship(canvas, rocket_frames, row, column):
             column -= column_speed
         if row <= 1 or row >= SCREEN_HEIGHT - rocket_height:
             row -= row_speed
-        draw_rocket(canvas, rocket_frame, row, column)
+        COROUTINES.append(draw_rocket(canvas, rocket_frame, row, column))
+        for obstacle in OBSTACLES:
+            if obstacle.has_collision(row, column):
+                COROUTINES.append(show_gameover(canvas, SCREEN_HEIGHT//2, SCREEN_WIDE//2))
+                return
         await asyncio.sleep(0)
 
 
@@ -122,7 +126,7 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         if obstacle in OBSTACLES_IN_LAST_COLLISION:
             OBSTACLES.remove(obstacle)
             OBSTACLES_IN_LAST_COLLISION.remove(obstacle)
-            COROUTINES.append(explode(canvas, row + obstacle_row//2, column + obstacle_column//2))
+            await explode(canvas, row + obstacle_row//2, column + obstacle_column//2)
             return
     else:        
         OBSTACLES.remove(obstacle)
@@ -133,9 +137,20 @@ async def sleep(tic=1):
         await asyncio.sleep(0)
 
 
-def draw_rocket(canvas, rocket_frame, row, column):
+async def show_gameover(canvas, row, column):
+    gameover_frame = get_gameover_frame()
+    frame_row, frame_column = get_frame_size(gameover_frame)
+    row -= frame_row // 2
+    column -= frame_column // 2
+    while True:
+        draw_frame(canvas, row, column, gameover_frame)
+        await asyncio.sleep(0)
+        draw_frame(canvas, row, column, gameover_frame, negative=True)
+
+
+async def draw_rocket(canvas, rocket_frame, row, column):
     draw_frame(canvas, row, column, rocket_frame)
-    canvas.refresh()
+    await asyncio.sleep(0)
     draw_frame(canvas, row, column, rocket_frame, negative=True)
 
 
@@ -143,7 +158,7 @@ def draw(canvas):
     rocket_frames = get_rocket_frames()
     garbage_frames = get_garbage_frames()
 
-    for column in range(100):
+    for column in range(50):
         star_row = random.randint(1, SCREEN_HEIGHT-1)
         star_column = random.randint(1, SCREEN_WIDE-1)
         star_type = random.choice(STAR)
@@ -152,7 +167,7 @@ def draw(canvas):
         fill_orbit_with_garbage(canvas, garbage_frames),
         control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT//2, SCREEN_WIDE//2)
     ])
-
+    
     canvas.nodelay(True)
     while True:
         for coroutine in COROUTINES.copy():
@@ -162,9 +177,10 @@ def draw(canvas):
                 COROUTINES.remove(coroutine) 
             if len(COROUTINES) == 0:
                 break
-
+        
+        canvas.refresh() 
         time.sleep(TIC_TIMEOUT)
-
+        
 
 if __name__ == '__main__':
     screen = curses.initscr()

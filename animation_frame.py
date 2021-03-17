@@ -31,3 +31,10 @@ def get_garbage_frames():
             garbage_frames.append(file.read())
     
     return garbage_frames
+
+
+def get_gameover_frame():
+    with open('animation/gameover.txt', 'r') as file:
+        gameover_frame = file.read()
+
+    return gameover_frame
