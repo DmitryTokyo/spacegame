@@ -7,11 +7,13 @@ from itertools import cycle
 from curses_tools import draw_frame, read_controls, get_frame_size
 from animation_frame import get_rocket_frames, get_garbage_frames
 from pysics import update_speed
+from obstacles import Obstacle, show_obstacles
 
 
 TIC_TIMEOUT = 0.1
 SCREEN_WIDE, SCREEN_HEIGHT = 0, 0
 COROUTINES = []
+OBSTACLES = []
 STAR = '*+:.'
 
 
@@ -54,7 +56,7 @@ async def control_spaceship(canvas, rocket_frames, row, column):
         await asyncio.sleep(0)
 
 
-async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
+async def fire(canvas, start_row, start_column, rows_speed=-1.3, columns_speed=0):
     """Display animation of gun shot, direction and speed can be specified."""
 
     row, column = start_row, start_column
@@ -77,6 +79,10 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     curses.beep()
 
     while 0 < row < max_row and 0 < column < max_column:
+        for obstacle in OBSTACLES:
+            if obstacle.has_collision(row, column):
+                return
+            
         canvas.addstr(round(row), round(column), symbol)
         await asyncio.sleep(0)
         canvas.addstr(round(row), round(column), ' ')
@@ -98,13 +104,21 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
     column = min(column, columns_number - 1)
 
     row = 0
+    obstacle_row, obstacle_column = get_frame_size(garbage_frame)
+    obstacle = Obstacle(row, column, obstacle_row, obstacle_column)
+    OBSTACLES.append(obstacle)
+    COROUTINES.append(show_obstacles(canvas, OBSTACLES))
 
     while row < rows_number:
         draw_frame(canvas, row, column, garbage_frame)
+        
         await asyncio.sleep(0)
         draw_frame(canvas, row, column, garbage_frame, negative=True)
         row += speed
-
+        obstacle.row += speed
+    else:    
+        OBSTACLES.remove(obstacle)
+        
 
 async def sleep(tic=1):
     for _ in range(tic):
@@ -137,7 +151,7 @@ def draw(canvas):
             try:
                 coroutine.send(None)
             except StopIteration:
-                COROUTINES.remove(coroutine)
+                COROUTINES.remove(coroutine) 
             if len(COROUTINES) == 0:
                 break
 
