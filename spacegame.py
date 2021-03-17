@@ -8,6 +8,7 @@ from curses_tools import draw_frame, read_controls, get_frame_size
 from animation_frame import get_rocket_frames, get_garbage_frames
 from pysics import update_speed
 from obstacles import Obstacle, show_obstacles
+from explosion import explode
 
 
 TIC_TIMEOUT = 0.1
@@ -121,6 +122,7 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         if obstacle in OBSTACLES_IN_LAST_COLLISION:
             OBSTACLES.remove(obstacle)
             OBSTACLES_IN_LAST_COLLISION.remove(obstacle)
+            COROUTINES.append(explode(canvas, row + obstacle_row//2, column + obstacle_column//2))
             return
     else:        
         OBSTACLES.remove(obstacle)
