@@ -46,6 +46,7 @@ async def blink(canvas, row, column, symbol='*'):
 
 
 async def control_spaceship(canvas, rocket_frames, row, column):
+    global is_collision
     rocket_height, rocket_wide = get_frame_size(rocket_frames[0])
     rocket_frames = cycle(rocket_frames)
     row_speed = column_speed = 0 
@@ -70,7 +71,6 @@ async def control_spaceship(canvas, rocket_frames, row, column):
             if obstacle.has_collision(row-1, column):
                 OBSTACLES_IN_LAST_COLLISION.append(obstacle)
                 await explode(canvas, row + 5, column + 2)
-                global is_collision
                 is_collision = True
                 COROUTINES.append(show_gameover(canvas, SCREEN_HEIGHT//2, SCREEN_WIDE//2))
                 return
