@@ -30,7 +30,7 @@ Player have to avoid collision with flying garbages. After 2020 year spaceship w
 
 ## Game video
 
-![screenshot](screenshot/space_game.gif)
+![screenshot](screenshot/spacegame.gif)
 
 ## License
 
