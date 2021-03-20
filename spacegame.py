@@ -13,10 +13,7 @@ from explosion import explode
 
 TIC_TIMEOUT = 0.1
 SCREEN_WIDE, SCREEN_HEIGHT = 0, 0
-COROUTINES = []
-OBSTACLES = []
 STAR = '*+:.'
-OBSTACLES_IN_LAST_COLLISION = []
 PHRASES = {
     1957: "First Sputnik",
     1961: "Gagarin flew!",
@@ -56,7 +53,7 @@ async def control_spaceship(canvas, rocket_frames, row, column):
         rows_direction, columns_direction, space_pressed = read_controls(
             canvas)
         if space_pressed and year >= 2020:
-            COROUTINES.append(fire(canvas, row - 1, column + rocket_wide // 2))
+            coroutines.append(fire(canvas, row - 1, column + rocket_wide // 2))
         row_speed, column_speed = update_speed(row_speed, column_speed, rows_direction, columns_direction)
         row += row_speed
         column += column_speed
@@ -65,14 +62,14 @@ async def control_spaceship(canvas, rocket_frames, row, column):
             column -= column_speed
         if row <= 1 or row >= SCREEN_HEIGHT - rocket_height:
             row -= row_speed
-        COROUTINES.append(draw_rocket(canvas, rocket_frame, row, column))
+        coroutines.append(draw_rocket(canvas, rocket_frame, row, column))
 
-        for obstacle in OBSTACLES:
+        for obstacle in obstacles:
             if obstacle.has_collision(row-1, column):
-                OBSTACLES_IN_LAST_COLLISION.append(obstacle)
+                obstacles_in_last_collision.append(obstacle)
                 await explode(canvas, row + 5, column + 2)
                 is_collision = True
-                COROUTINES.append(show_gameover(canvas, SCREEN_HEIGHT//2, SCREEN_WIDE//2))
+                coroutines.append(show_gameover(canvas, SCREEN_HEIGHT//2, SCREEN_WIDE//2))
                 return
         await asyncio.sleep(0)
 
@@ -100,9 +97,9 @@ async def fire(canvas, start_row, start_column, rows_speed=-1.3, columns_speed=0
     curses.beep()
 
     while 0 < row < max_row and 0 < column < max_column:
-        for obstacle in OBSTACLES:
+        for obstacle in obstacles:
             if obstacle.has_collision(row, column):
-                OBSTACLES_IN_LAST_COLLISION.append(obstacle)
+                obstacles_in_last_collision.append(obstacle)
                 return
             
         canvas.addstr(round(row), round(column), symbol)
@@ -117,7 +114,7 @@ async def fill_orbit_with_garbage(canvas, garbage_frames):
         if year < 1961:
             await asyncio.sleep(0)
         else:
-            COROUTINES.append(fly_garbage(canvas, random.randint(1, SCREEN_WIDE-1), random.choice(garbage_frames)))
+            coroutines.append(fly_garbage(canvas, random.randint(1, SCREEN_WIDE-1), random.choice(garbage_frames)))
             if year >= 2025:
                 sleep_time = 6
             else:
@@ -136,8 +133,8 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
     row = 0
     obstacle_row, obstacle_column = get_frame_size(garbage_frame)
     obstacle = Obstacle(row, column, obstacle_row, obstacle_column)
-    OBSTACLES.append(obstacle)
-    COROUTINES.append(show_obstacles(canvas, OBSTACLES))
+    obstacles.append(obstacle)
+    # coroutines.append(show_obstacles(canvas, obstacles))
 
     while row < rows_number:
         draw_frame(canvas, row, column, garbage_frame)
@@ -146,13 +143,13 @@ async def fly_garbage(canvas, column, garbage_frame, speed=0.5):
         draw_frame(canvas, row, column, garbage_frame, negative=True)
         row += speed
         obstacle.row += speed
-        if obstacle in OBSTACLES_IN_LAST_COLLISION:
-            OBSTACLES.remove(obstacle)
-            OBSTACLES_IN_LAST_COLLISION.remove(obstacle)
+        if obstacle in obstacles_in_last_collision:
+            obstacles.remove(obstacle)
+            obstacles_in_last_collision.remove(obstacle)
             await explode(canvas, row + obstacle_row//2, column + obstacle_column//2)
             return
     else:        
-        OBSTACLES.remove(obstacle)
+        obstacles.remove(obstacle)
         
 
 async def sleep(tic=1):
@@ -198,16 +195,23 @@ async def draw_count_year(canvas):
 def draw(canvas):
     global is_collision
     global year
+    global coroutines
+    global obstacles
+    global obstacles_in_last_collision
+
     rocket_frames = get_rocket_frames()
     garbage_frames = get_garbage_frames()
     small_canvas = canvas.derwin(SCREEN_HEIGHT-2,  2)
-
+    
+    obstacles = []
+    obstacles_in_last_collision = []
+    coroutines = []
     for column in range(50):
         star_row = random.randint(1, SCREEN_HEIGHT-1)
         star_column = random.randint(1, SCREEN_WIDE-1)
         star_type = random.choice(STAR)
-        COROUTINES.append(blink(canvas, star_row, star_column, star_type))
-    COROUTINES.extend([
+        coroutines.append(blink(canvas, star_row, star_column, star_type))
+    coroutines.extend([
         fill_orbit_with_garbage(canvas, garbage_frames),
         control_spaceship(canvas, rocket_frames, SCREEN_HEIGHT//2, SCREEN_WIDE//2),
         draw_count_year(small_canvas)
@@ -217,12 +221,12 @@ def draw(canvas):
 
     canvas.nodelay(True)
     while True:
-        for coroutine in COROUTINES.copy():
+        for coroutine in coroutines.copy():
             try:
                 coroutine.send(None)
             except StopIteration:
-                COROUTINES.remove(coroutine) 
-            if len(COROUTINES) == 0:
+                coroutines.remove(coroutine) 
+            if len(coroutines) == 0:
                 break
 
         canvas.refresh() 
