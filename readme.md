@@ -35,7 +35,3 @@ Player have to avoid collision with flying garbages. After 2020 year spaceship w
 ## License
 
 You can copy, distribute and modify the software.
-
-## Motivation
-
-This project was created as part of online course for web developer [dvmn.org](https://dvmn.org/modules/).
